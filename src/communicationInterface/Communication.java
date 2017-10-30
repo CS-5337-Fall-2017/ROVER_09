@@ -104,16 +104,26 @@ public class Communication {
             for (int col = 0; col < scanMapTiles[row].length; col++) {
 
                 MapTile mapTile = scanMapTiles[col][row];
-
-                int xp = currentLoc.xpos - centerIndex + col;
+                
+                // only tiles that have been explored are added to JSONArray
+                if (mapTile.getTerrain() == Terrain.UNKNOWN) continue;
+            	
+            	int xp = currentLoc.xpos - centerIndex + col;
                 int yp = currentLoc.ypos - centerIndex + row;
                 Coord coord = new Coord(xp, yp);
                 JSONObject tile = new JSONObject();
+                
+                // only tiles that have a positive x and y are added to JSONArray
+                if (xp < 0 || yp < 0) continue;
+                
                 tile.put("x", xp);
                 tile.put("y", yp);
                 tile.put("terrain", mapTile.getTerrain().toString());
                 tile.put("science", mapTile.getScience().toString());
+                tile.put("scanned", mapTile.getScannedBySensorValue());
+                tile.put("rover", mapTile.getRoverName());
                 tiles.add(tile);
+                 
             }
         }
         return tiles;

@@ -1,6 +1,9 @@
 package MapSupport;
 
-import enums.RoverConfiguration;
+import java.util.HashSet;
+import java.util.Set;
+
+import enums.RoverToolType;
 import enums.Science;
 import enums.Terrain;
 
@@ -10,7 +13,8 @@ public class MapTile {
 	public int count = 0;  //undefined usage, possibly use on ScanMap for tracking visits
 	private Science science;	//for use on ScanMap, not used on PlanetMap
 	private boolean hasRover;	//for use on ScanMap, not used on PlanetMap
-	private String scannedBy = null; //for keeping track of which rover first discovered this tile
+	private String roverName = ""; //for keeping track of rover locations from PlanetMap
+	private String scannedBySensor = "0000"; // digits from left to right are Chemical,Radar,Radiation,Spectral
 	
 	public MapTile(){
 		this.terrain = Terrain.SOIL;
@@ -20,7 +24,7 @@ public class MapTile {
 	
 	public MapTile(int notUsed){
 		// use any integer as an argument to create MapTile with no terrain
-		this.terrain = Terrain.NONE;
+		this.terrain = Terrain.UNKNOWN;
 		this.science = Science.NONE;
 		this.hasRover = false;
 	}
@@ -58,11 +62,11 @@ public class MapTile {
 		this.elevation = elev;
 		this.hasRover = hasR;
 		this.count = cnt;
-		this.scannedBy = scanBy;
+		this.roverName = scanBy;
 	}
 	
 	public MapTile getCopyOfMapTile(){
-		MapTile rTile = new MapTile(this.terrain, this.science, this.elevation, this.hasRover, this.scannedBy, this.count);	
+		MapTile rTile = new MapTile(this.terrain, this.science, this.elevation, this.hasRover, this.roverName, this.count);	
 		return rTile;
 	}
 
@@ -84,8 +88,44 @@ public class MapTile {
 		return this.hasRover;
 	}
 	
-	public String getScannedBy() {
-		return this.scannedBy;
+	
+	public String getScannedBySensorValue() {
+		return this.scannedBySensor;
+	}
+	
+	public void setScannedBySensor(String sensors) {
+		
+		char[] sensorsToAdd = sensors.toCharArray();
+		char[] currentSensors = scannedBySensor.toCharArray();
+		
+		// checks for correct length
+		if (sensorsToAdd.length != 4) return;
+		
+		// checks for correct format
+		for(char c: sensorsToAdd) {
+			if (!(c == '0' || c == '1')) return;
+		}
+		
+		for(int i = 0; i < scannedBySensor.length(); i++) {
+			if (sensorsToAdd[i] == '1') currentSensors[i] = '1';
+		}
+		
+		scannedBySensor = new String(currentSensors);
+	}
+	
+	public Set<String> getScannedBySensors() {
+		
+		Set<String> sensors = new HashSet<String>();
+		
+		char[] values = this.scannedBySensor.toCharArray();
+		
+		// order is Chemical,Radar,Radiation,Spectral
+		if (values[0] == '1') sensors.add("CHEMICAL_SENSOR");
+		if (values[1] == '1') sensors.add("RADAR_SENSOR");
+		if (values[2] == '1') sensors.add("RADIATION_SENSOR");
+		if (values[3] == '1') sensors.add("SPECTRAL_SENSOR");
+		
+		return sensors;
 	}
 	
 	// well, this might have broke the thread safe rule
@@ -102,12 +142,12 @@ public class MapTile {
 		this.science = sci;
 	}
 	
-	public boolean setScannedBy(String roverName) {
-		if(this.scannedBy == null){
-			this.scannedBy = roverName;
-			return true;
-		} else {
-			return false;
-		}
+	public void setRoverName(String roverName) {
+		this.roverName = roverName;
 	}
+	
+	public String getRoverName() {
+		return this.roverName;
+	}
+	
 }

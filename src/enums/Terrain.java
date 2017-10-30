@@ -6,7 +6,8 @@ public enum Terrain {
 	SOIL ("N"),
 	GRAVEL ("G"),
 	SAND ("S"),
-	FLUID ("F");
+	FLUID ("F"),
+	UNKNOWN ("U");
 	
 	private final String value;
 	
@@ -39,6 +40,9 @@ public enum Terrain {
     		break;
     	case "F":
     		output = Terrain.FLUID;
+    		break;
+    	case "U":
+    		output = Terrain.UNKNOWN;
     		break;
 
     	default:
