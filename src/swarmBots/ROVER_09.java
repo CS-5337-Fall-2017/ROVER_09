@@ -5,9 +5,12 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.Stack;
 
@@ -44,10 +47,10 @@ import searchStrategy.graph.Node;
  * 
  * @author heavility modified by: luisfisherjr
  * 
- * ROVER_07 is intended to be a the template for GreenCorp
+ * ROVER_09 is intended to be a the template for GreenCorp
  * Start by refactoring the class name to match your rovers name.
  * Then do a find and replace to change all the other instances of the 
- * name "ROVER_07" to match your rovers name.
+ * name "ROVER_09" to match your rovers name.
  * 
  * The behavior of this robot will allow it to navigate the map properly
  * and collect resources using A* search
@@ -56,11 +59,11 @@ import searchStrategy.graph.Node;
  *
  */
 
-public class ROVER_07 extends Rover {
+public class ROVER_09 extends Rover {
 	
 	// states if rover
 	private enum State {
-		UPDATING_PATH, MOVING, GATHERING, FINDING_RESOURCE, REACHED_TARGET, EXPLORING
+		UPDATING_PATH, MOVING, GATHERING, FINDING_RESOURCE, REACHED_TARGET, EXPLORING, IDLE
 	}
 	
 	// sub state of rover
@@ -91,28 +94,28 @@ public class ROVER_07 extends Rover {
 	 * Runs the client
 	 */
 	public static void main(String[] args) throws Exception {
-		ROVER_07 client;
+		ROVER_09 client;
     	// if a command line argument is present it is used
 		// as the IP address for connection to RoverControlProcessor instead of localhost 
 		
 		if(!(args.length == 0)){
-			client = new ROVER_07(args[0]);
+			client = new ROVER_09(args[0]);
 		} else {
-			client = new ROVER_07();
+			client = new ROVER_09();
 		}
 		
 		client.run();
 	}
 
-	public ROVER_07() {
+	public ROVER_09() {
 		// constructor
-		rovername = "ROVER_07"; // rover 1 is fasted used for testing
+		rovername = "ROVER_09"; // rover 1 is fasted used for testing
 		System.out.println(rovername + " rover object constructed");
 	}
 	
-	public ROVER_07(String serverAddress) {
+	public ROVER_09(String serverAddress) {
 		// constructor
-		rovername = "ROVER_07"; // rover 1 is fasted used for testing
+		rovername = "ROVER_09"; // rover 1 is fasted used for testing
 		System.out.println(rovername + " rover object constructed");
 		SERVER_ADDRESS = serverAddress;
 	}
@@ -199,7 +202,6 @@ public class ROVER_07 extends Rover {
 	        Map<Coord, MapTile> tiles = null; // data from global map
 	        Set<Coord> tilesRoverCanWalkOn = null; // coords of all tiles rover can walk on
 	        Set<Coord> tilesRoverCanGather = null; // coords of all tiles rover can gather
-	        Set<Coord> tilesRoverCanProtect = null;
 	        Set<Coord> tilesRoverCanAddInformationAbout = null; // coords of all tiles rover can gather
 	        Set<Coord> unexploredTiles = null; // coords of all tiles with Terrain.UNKOWN
 	        Set<Coord> teamMemberLocations = null;
@@ -208,13 +210,15 @@ public class ROVER_07 extends Rover {
 	        Set<Coord> tilesToRegather = new HashSet<>(); // saves tiles that can gather for regathering
 	        Set<Coord> tilesToRegatherRemaining = new HashSet<>(); // used in the find resource loop on regather mode 
 	        
+	        List<Coord> previousPositions = new ArrayList<Coord>(); // used to check if stuck visiting same Coords
+	        
 	        
 	        Coord closestResourceCanGather = null; // closest resource rover can pick up
 	        Coord closestTileToExplore = null; // closest tile that the rover can reveal some information about
 	        Coord closestTeamMember = null; // closest tile that the rover can reveal some information about
 	        Coord closestTileToRegather = null;
-	        // stack that allows rover to target resources on way to a final destination
-	        Stack<Coord> targetLocations = new Stack<>();
+
+	        Stack<Coord> targetLocations = new Stack<>(); // stack that allows rover to target resources on way to a final destination
 	        targetLocations.push(targetLocation);
 	        
 	        // no meaningful name used in minor calculations
@@ -228,9 +232,12 @@ public class ROVER_07 extends Rover {
 			while (true) {                     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<		
 				
 				startTime = System.currentTimeMillis();
-								
+				
 				// **** Request Rover Location from RCP ****
+				Thread.sleep(lagCushion);
 				currentLoc = getCurrentLocation();
+				
+				previousPositions.add(currentLoc); // adds to the previousPositions list
 			
 				if (targetLocations.size() > 0) {
 					targetLocation = targetLocations.peek();
@@ -241,6 +248,9 @@ public class ROVER_07 extends Rover {
 
 				// ***** do a SCAN *****
 				// gets the scanMap from the server based on the Rover current location
+				
+				
+				Thread.sleep(lagCushion);
 				scanMap = doScan();
 				
 				// modifies scanMap before sending it to communication server adding rover location and scan data
@@ -276,18 +286,15 @@ public class ROVER_07 extends Rover {
 	            
 	            // done outside of loop for performance
 	            tiles = globalMap.getAllTiles();
-//	            tilesRoverCanWalkOn = tilesRoverCanWalkOn(tiles);
 	            tilesRoverCanWalkOn = tilesRoverCanWalkOnOrAddInformation(tiles);
 	            tilesRoverCanGather = tilesRoverCanGather(tiles);
-	            tilesRoverCanProtect = tilesRoverCanProtect(tiles);
 	            tilesRoverCanAddInformationAbout = tilesRoverCanAddInformationAbout(tiles);
 	            unexploredTiles = unkownTiles(tiles);
 	            teamMemberLocations = teamMemberLocations(tiles);     
 	            
-	            tilesToRegather.addAll(tilesRoverCanGather); // adds any new tiles that can be gathered to the set
-	            
-	            //TODO add set of all resources revield
-	            // tilestThatHadResources = tilestThatHadResources(tiles); 
+	            if (tilesRoverCanGather.size() > 0) { // adds any new tiles that can be gathered to the set tilesToRegather
+	            	tilesToRegather.addAll(tilesRoverCanGather); 
+	            }
 	            
 	            // testing...
 	            // prints out many variables to the Console to see if the are correct for debug purposes
@@ -301,13 +308,10 @@ public class ROVER_07 extends Rover {
 				System.out.println("resources " + rovername + " tiles to scan: " + tilesRoverCanAddInformationAbout.size());
 				System.out.println("resources " + rovername + " tiles can walk on: " + tilesRoverCanWalkOn.size());
 				System.out.println("resources " + rovername + " tiles can gather: " + tilesRoverCanGather.size());
-//				System.out.println("resources " + rovername + " tiles can protect: " + tilesRoverCanProtect.size());
 				System.out.println("resources " + rovername + " regather set size: " + tilesToRegather.size());
 				System.out.println("resources " + rovername + " targets remaining to regather: " + tilesToRegatherRemaining.size());
 				
-				// this is the Rovers HeartBeat, it regulates how fast the Rover cycles through the control loop
-				// sleep until move cooldown is over
-				Thread.sleep(moveCooldownRemaining());
+				
 				
 				/** ####  Rover State Machine loop  ####
 				 *  
@@ -316,7 +320,18 @@ public class ROVER_07 extends Rover {
 	            do {
 	            	
 	            	switch (roverState) {
-
+	            	
+	            	case IDLE: // entry and exit state of state machine
+	    				
+	    				// this is the Rovers HeartBeat, it regulates how fast the Rover cycles through the state machine
+	    				// sleep until move cooldown is over
+	    				
+	            		Thread.sleep(moveCooldownRemaining());
+	    				System.out.println("Move Cooldown finished entering state MOVING...");
+	            		roverState = State.MOVING;
+	    				
+	            		break;
+	            		
 	            	case EXPLORING: // exploring tiles that rover can add information about
 	            		
 	            		closestTileToExplore = closestTile(tilesRoverCanAddInformationAbout);
@@ -330,19 +345,19 @@ public class ROVER_07 extends Rover {
 	            		}
 	            		else {
 	            			
-	            	  			System.out.println("no target to explore changing mode to REGATHER...");
-	            	  			System.out.println("populating tilesToRegatherRemaining...");
-		            			System.out.println("entering state FINDING_RESOURCE...");
-		            			
-		            			tilesToRegatherRemaining.addAll(tilesToRegather);
-		            			
-		            			if (tilesToRegatherRemaining.size() == 0) {
-		            				System.out.println("can't do anything sleeping...");
-		            				Thread.sleep(sleepTime);
-		            			}
-				
-		            			roverState = State.FINDING_RESOURCE;
-		            			roverMode = Mode.REGATHER;
+            	  			System.out.println("no target to explore changing mode to REGATHER...");
+            	  			System.out.println("populating tilesToRegatherRemaining...");
+	            			System.out.println("entering state FINDING_RESOURCE...");
+	            			
+	            			tilesToRegatherRemaining.addAll(tilesToRegather);
+	            			
+	            			if (tilesToRegatherRemaining.size() == 0) {
+	            				System.out.println("can't do anything sleeping...");
+	            				Thread.sleep(sleepTime);
+	            			}
+	            			
+	            			roverMode = Mode.REGATHER;
+	            			roverState = State.FINDING_RESOURCE;
 	            		}
 	            		
 	            		break;
@@ -407,6 +422,7 @@ public class ROVER_07 extends Rover {
 				            tilesRoverCanGather.remove(targetLocation);
 				            tilesRoverCanAddInformationAbout.remove(targetLocation);
 				            tilesRoverCanWalkOn.remove(targetLocation);
+				            tilesToRegatherRemaining.remove(targetLocation);
 				            
 				            targetLocations.pop(); // target unreachable removing from stack
 							
@@ -461,7 +477,7 @@ public class ROVER_07 extends Rover {
 						
 						Thread.sleep(gatherCooldownRemaining()); // this keeps the rover on resource so other rovers do not pick it up before it is ready
 							
-						Thread.sleep(lagCushion * 4); // sleep regardless if cooldown so move req doesnt mess with gather req
+						Thread.sleep(700); // sleep regardless if cooldown so move req doesnt mess with gather
 						
 						if(roverMode.equals(Mode.SEARCH)) {
 							
@@ -536,10 +552,25 @@ public class ROVER_07 extends Rover {
 							
 							resetMoveCooldown(); // resets move cooldown after move happens
 							
-							System.out.println("moved to next MapTile entering state MOVING...");
-							roverState = State.MOVING;
+							System.out.println("attempted to move to next MapTile entering state IDLE...");
+							roverState = State.IDLE;
 						}
-						else {
+						else { // if there is an obstacle
+							
+							if(backtracking(previousPositions)) { // if you have recently been on the current tile
+								
+								System.out.println("path blocked and backtracked recently... ");
+								
+								previousPositions.clear(); // clear list of previous tiles
+								targetLocations.clear(); // clear all targets this allows for resource gathering on way to target
+								System.out.println("clearing targets...");
+								
+								targetLocations.add(randomWalkAbleCoord(tilesRoverCanWalkOn)); // add random target
+								System.out.println("setting random target...");
+								
+								System.out.println("entering state UPDATING_PATH...");
+								roverState = State.UPDATING_PATH;
+							}
 							
 							tilesRoverCanWalkOn.remove((Coord)nextMove.getTo().getData()); // removes coord to recalculate new path
 							
@@ -550,7 +581,7 @@ public class ROVER_07 extends Rover {
 						break;
 					}
 	            	
-	            } while (roverState != State.MOVING); // if rover has reached a target to defend exit loop
+	            } while (roverState != State.IDLE); // rover has tried to move, exiting loop to update all data
 	            
 	            /** #### end of Rover State Machine loop  #### */
 	            
@@ -913,41 +944,6 @@ public class ROVER_07 extends Rover {
 	
 	/**
  	 * Method that returns a subset of Coord from MapTiles in globalMap. This subset consists of 
-	 * Coord of tiles that this rover can't gather but can reach (tiles rover can walk on and does not have tools to gather on that terrain type).
-	 * 
- 	 * @param Map<Coord, MapTile> coordMaping : the information from globalMap passed as a parameter for performance
-	 * 
-	 * @return Set<Coord> subset of globalMap.getAllTiles().keySet()
-	 */
-	private Set<Coord> tilesRoverCanProtect(Map<Coord, MapTile> coordMaping) {
-		
-		Set<Coord> canWalkOnWithResources = tilesRoverCanWalkOn(coordMaping);
-		Set<Coord> canProtectOn = new HashSet<Coord>();
-		
-		MapTile tile = null;
-		String terrain = "";
-		
-		for(Coord coord: canWalkOnWithResources) {
-		
-			
-			tile = globalMap.getTile(coord);
-			
-			if (tile.getScience().equals(Science.NONE)) continue;
-			
-			terrain = tile.getTerrain().getTerString();
-			
-			if(!gatherableTerrain.contains(terrain)) {
-				
-				canProtectOn.add(coord);
-			}
-		}
-		
-		return canProtectOn;
-	}
-	
-	
-	/**
- 	 * Method that returns a subset of Coord from MapTiles in globalMap. This subset consists of 
 	 * Coord of tiles that have Terrain of types that this rover can move to that do not have rovers.
 	 * 
  	 * @param Map<Coord, MapTile> coordMaping : the information from globalMap passed as a parameter for performance
@@ -977,6 +973,15 @@ public class ROVER_07 extends Rover {
 		return canWalkOn;
 	}
 	
+	
+	/**
+ 	 * Method that returns a subset of Coord from MapTiles in globalMap. This subset consists of 
+	 * Coord of tiles that the rover can add information about either terrain type or scan with science
+	 * 
+ 	 * @param Map<Coord, MapTile> coordMaping : the information from globalMap passed as a parameter for performance
+	 * 
+	 * @return Set<Coord> subset of globalMap.getAllTiles().keySet()
+	 */
 	private Set<Coord> tilesRoverCanWalkOnOrAddInformation(Map<Coord, MapTile> coordMaping) {
 		
 		Set<Coord> canWalkOnAndAddInformationTo = tilesRoverCanWalkOn(coordMaping);
@@ -1007,33 +1012,6 @@ public class ROVER_07 extends Rover {
 			coord = entry.getKey();
 			tile = entry.getValue();
 			terrain = tile.getTerrain().getTerString();
-			
-			if(terrain.equals(Terrain.UNKNOWN.getTerString())) {
-				
-				uknownTiles.add(coord);
-			}
-		}
-		
-		return uknownTiles;
-	}
-	
-	//TODO add set of all resources revield
-	private Set<Coord> tilestThatHadResources(Map<Coord, MapTile> coordMaping) {
-		
-		Set<Coord> uknownTiles = new HashSet<>();
-		
-		Coord coord;
-		MapTile tile;
-		String terrain;
-		
-		for (Map.Entry<Coord, MapTile> entry : coordMaping.entrySet()) {
-			
-			coord = entry.getKey();
-			tile = entry.getValue();
-			
-			//TODO change
-			terrain = tile.getTerrain().getTerString();
-			
 			
 			if(terrain.equals(Terrain.UNKNOWN.getTerString())) {
 				
@@ -1169,6 +1147,7 @@ public class ROVER_07 extends Rover {
 		return 	Math.abs(first.xpos - second.xpos) + Math.abs(first.ypos - second.ypos);
 	}
 	
+	
 	/**
 	 * Method that returns the coordinates of the other rovers on the team
 	 * 
@@ -1198,6 +1177,64 @@ public class ROVER_07 extends Rover {
 		}
 		
 		return roverCoords;
+	}
+	
+	
+	/**
+ 	 * Method that returns true if you have previously visited a tile you are on within the last 5 moves
+	 * 
+ 	 * @param List<Coord> previousPositions : List of tiles you have visited with the current tile being the last element
+	 * 
+	 * @return boolean : if you have visited the current tile twice within 5 moves returns true
+	 */
+	private boolean backtracking(List<Coord> previousPositions) {
+		
+		int length = previousPositions.size();
+		
+		if (length < 5) {
+			return false;
+		}
+		
+
+		int index = length - 1;
+		
+		Coord curr = previousPositions.get(index);
+		
+		// only checks the previous 5 steps
+		for(index--; index > length - 6; index--) {
+			
+			if(curr.equals(previousPositions.get(index))) {
+				return true;
+			}
+			
+		}
+		
+		return false;
+	}
+	
+
+	/**
+ 	 * Method that returns a random Coord of a tile the rover can walk on 
+	 * 
+ 	 * @param Set<Coord> roverCanWalkOn : the tiles rover can walk on passed as a parameter for performance
+	 * 
+	 * @return Coord : random element from the Set<Coord> roverCanWalkOn
+	 */
+	private Coord randomWalkAbleCoord(Set<Coord> roverCanWalkOn) {
+		
+		Random ran = new Random();
+		
+		int index = ran.nextInt(roverCanWalkOn.size());
+		
+		Iterator<Coord> iter = roverCanWalkOn.iterator();
+		
+		for (int i = 0; i < index; i++) {	    
+			
+			iter.next();
+		}
+		
+		return iter.next();
+
 	}
 	
 }
